@@ -2,7 +2,6 @@ from __future__ import division
 import numpy as np
 import pandas as pd
 import dill 
-from . import gammagamma_fitter, transformation, paretonbd_fitter 
 from datetime import datetime, timedelta
 import warnings
 
@@ -622,76 +621,7 @@ def get_sunday(date):
 
 
 
-def calculate_clv_per_week(transaction_data, start_date_str, end_date_str, last_date_of_fitting_str, time_of_prediction=4, discount_rate=0.05):
-    """
-    Calculate Customer Lifetime Value (CLV) per week using Pareto/NBD and Gamma-Gamma models.
 
-    Parameters
-    ----------
-    transaction_data : DataFrame
-        DataFrame containing transaction data.
-    start_date_str : str
-        The start date for the initial training period in 'YYYY-MM-DD' format.
-    end_date_str : str
-        The end date for the initial training period in 'YYYY-MM-DD' format.
-    last_date_of_fitting_str : str
-        The last date up to which the fitting will be performed in 'YYYY-MM-DD' format.
-    time_of_prediction : int, optional
-        The number of periods (weeks) for the prediction period. Default is 4.
-    discount_rate : float, optional
-        The discount rate to be applied in the CLV calculations. Default is 0.05.
-
-    Returns
-    -------
-    tuple
-        Two lists: CLV_per_week and time_standing.
-        - CLV_per_week: List of DataFrames containing CLV for each week.
-        - time_standing: List of datetime objects corresponding to the end date of each training period.
-    """
-    # Mute warnings
-    warnings.filterwarnings("ignore")
-
-    CLV_per_week = []
-    time_standing = []
-
-    start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
-    end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
-    last_date_of_fitting = datetime.strptime(last_date_of_fitting_str, "%Y-%m-%d")
-
-    while end_date <= last_date_of_fitting:
-        training_start = start_date
-        training_end = end_date
-        
-        rfm_calculation = transformation.rfm_in_weeks_calculation_CLV(transaction_data=transaction_data, start=training_start, end=training_end)
-        rfm_calculation = rfm_calculation.round(2)
-        
-        pareto_nbd = paretonbd_fitter.ParetoNBDFitter()
-        pareto_nbd.fit(rfm_calculation['frequency'], rfm_calculation['recency'], rfm_calculation['T'])
-        
-        ggf = gammagamma_fitter.GammaGammaFitter(penalizer_coef=0.01)
-        ggf.fit(np.asarray(rfm_calculation['frequency'] + 1), np.asarray(rfm_calculation['monetary_value']))
-        
-        customer_CLV = ggf.customer_lifetime_value(
-            pareto_nbd,
-            rfm_calculation['frequency'] + 1,
-            rfm_calculation['recency'],
-            rfm_calculation['T'],
-            rfm_calculation['monetary_value'],
-            time=time_of_prediction,
-            freq='W',
-            discount_rate=discount_rate  # discount rate
-        )
-        customer_CLV.index = rfm_calculation.index
-
-        CLV_per_week.append(customer_CLV)
-        time_standing.append(training_end)
-        print(end_date)
-        
-        start_date += timedelta(weeks=1)
-        end_date += timedelta(weeks=1)
-
-
-    return CLV_per_week
 
 def clv_trajectory_aggregate(clv_list, customer_id):
     """
