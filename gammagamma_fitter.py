@@ -211,7 +211,6 @@ class GammaGammaFitter(BaseFitter):
             fitted and with parameters estimated
         """
 
-        _check_inputs(frequency, monetary_value=monetary_value)
 
         frequency = np.asarray(frequency).astype(float)
         monetary_value = np.asarray(monetary_value).astype(float)
