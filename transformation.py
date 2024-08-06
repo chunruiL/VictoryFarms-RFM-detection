@@ -102,8 +102,6 @@ def calculate_monthly_rfm(transaction_data, customer_list, start_date, end_date)
         monthly_rfm = rfm_in_weeks_calculation(transaction_data, first_monday, last_sunday)
         current_date = (current_date.replace(day=28) + timedelta(days=4)).replace(day=1)
         rfm_data.append(monthly_rfm)
-
-    rfm_data = absence_handler_unstand(rfm_data, customer_list)
     return rfm_data
 
 
