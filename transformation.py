@@ -333,6 +333,7 @@ def absence_handler_unstand(purchases_rfm, customer_list):
 
     # Fill in the values for absent customers.
     for x, month in enumerate(purchases_rfm):
+        rows_to_add = []
         # For every absence cusomers:
         for absence in absence_list[x]:
             # Calculate recency in weeks (assuming 'As of' column is datetime)
@@ -341,12 +342,18 @@ def absence_handler_unstand(purchases_rfm, customer_list):
             
             recency_weeks = (last_day_of_month - first_day_of_month).days / 7
             T = recency_weeks
-            month.loc[absence] = [0, T, 0, 0, last_day_of_month]
+            assignment_list = [0, T, 0, 0, last_day_of_month]
+            row_to_add = pd.Series(assignment_list, index=month.columns, name=absence)
+            rows_to_add.append(row_to_add)
 
-        
+        if rows_to_add:
+            rows_to_add_df = pd.DataFrame(rows_to_add)
+            month = pd.concat([month, rows_to_add_df]) 
+            
         rfm_stand_complete.append(month.sort_index())
 
     return rfm_stand_complete
+
 
 
 def absence_handler(purchases_rfm_stand):
