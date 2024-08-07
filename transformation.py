@@ -347,13 +347,12 @@ def absence_handler_unstand(purchases_rfm, customer_list):
             rows_to_add.append(row_to_add)
 
         if rows_to_add:
-            rows_to_add_df = pd.DataFrame(rows_to_add)
-            month = pd.concat([month, rows_to_add_df]) 
+            rows_to_add_df = pd.DataFrame(rows_to_add, columns= month.columns)
+            month = pd.concat([month, rows_to_add_df.astype(month.dtypes)], axis = 0) 
             
         rfm_stand_complete.append(month.sort_index())
 
     return rfm_stand_complete
-
 
 
 def absence_handler(purchases_rfm_stand):
