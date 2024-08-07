@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from scipy.stats import ttest_ind
 from . import transformation
 
 def frequency_evaluation(customer_id_list, transaction_data, detection_time):
@@ -33,9 +34,11 @@ def frequency_evaluation(customer_id_list, transaction_data, detection_time):
     df_missing = pd.DataFrame(index=missing_customers, columns=rfm_after_detection.columns).fillna(0)
     rfm_after_detection = pd.concat([rfm_after_detection, df_missing])
 
+    ratios = rfm_after_detection['frequency'] / rfm_before_detection['frequency']
     mean_ratio = np.mean(rfm_after_detection['frequency'] / rfm_before_detection['frequency'])
     std =  np.std(rfm_after_detection['frequency']/rfm_before_detection['frequency'])
-    return mean_ratio, std 
+    
+    return ratios, mean_ratio, std 
 
 
 def monetary_value_evaluation(customer_id_list, transaction_data, detection_time):
@@ -61,10 +64,11 @@ def monetary_value_evaluation(customer_id_list, transaction_data, detection_time
     after_detection_date = after_detection_date.strftime("%Y-%m-%d")
     rfm_after_detection = transformation.rfm_in_weeks_calculation_evaluation(customer_transactions, after_detection_date, '2022-08-31')
 
+    ratios = rfm_after_detection['monetary_value'] / rfm_before_detection['monetary_value']
     mean_ratio = np.mean(rfm_after_detection['monetary_value'] / rfm_before_detection['monetary_value'])
     std_ratio = np.std(rfm_after_detection['monetary_value'] / rfm_before_detection['monetary_value'])
 
-    return mean_ratio, std_ratio
+    return ratios, mean_ratio, std_ratio
 
 
 def recency_evaluation(customer_id_list, transaction_data, detection_time):
@@ -91,7 +95,29 @@ def recency_evaluation(customer_id_list, transaction_data, detection_time):
     after_detection_date = after_detection_date.strftime("%Y-%m-%d")
     rfm_after_detection = transformation.rfm_in_weeks_calculation_evaluation(transaction_data, after_detection_date, '2022-08-31')
 
+    ratios = rfm_after_detection['recency'] / rfm_before_detection['recency']
     mean_ratio = np.mean(rfm_after_detection['recency'] / rfm_before_detection['recency'])
     std_ratio = np.std(rfm_after_detection['recency'] / rfm_before_detection['recency'])
 
-    return mean_ratio, std_ratio
+    return ratios, mean_ratio, std_ratio
+
+
+def perform_t_tests(monthly_data1, monthly_data2, months):
+    """
+    Perform t-tests for each pair of monthly data.
+
+    Parameters
+    ----------
+    monthly_data1: list
+        List of data for the first group, with each element being the data for one month.
+    :param monthly_data2: list
+        List of data for the second group, with each element being the data for one month.
+    :param months: list
+        List of month names corresponding to the data.
+    """
+    def t_test(data1, data2, month):
+        t_stat, p_value = ttest_ind(data1, data2, equal_var=False)
+        print(f"{month} - T-statistic: {t_stat}, P-value: {p_value}")
+    
+    for data1, data2, month in zip(monthly_data1, monthly_data2, months):
+        t_test(data1, data2, month)
