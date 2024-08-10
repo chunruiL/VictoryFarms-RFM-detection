@@ -28,7 +28,7 @@ def frequency_evaluation(customer_id_list, transaction_data, detection_time):
                                                                       '2022-01-01', detection_time)
     after_detection_date = datetime.strptime(detection_time, "%Y-%m-%d") + timedelta(days=1)
     after_detection_date = after_detection_date.strftime("%Y-%m-%d")
-    rfm_after_detection = transformation.rfm_in_weeks_calculation(customer_transactions, after_detection_date, '2022-08-31')
+    rfm_after_detection = transformation.rfm_in_weeks_calculation_evaluation(customer_transactions, after_detection_date, '2022-08-31')
 
     missing_customers = rfm_before_detection.index.difference(rfm_after_detection.index)
     df_missing = pd.DataFrame(index=missing_customers, columns=rfm_after_detection.columns).fillna(0)
@@ -64,6 +64,10 @@ def monetary_value_evaluation(customer_id_list, transaction_data, detection_time
     after_detection_date = after_detection_date.strftime("%Y-%m-%d")
     rfm_after_detection = transformation.rfm_in_weeks_calculation_evaluation(customer_transactions, after_detection_date, '2022-08-31')
 
+    missing_customers = rfm_before_detection.index.difference(rfm_after_detection.index)
+    df_missing = pd.DataFrame(index=missing_customers, columns=rfm_after_detection.columns).fillna(0)
+    rfm_after_detection = pd.concat([rfm_after_detection, df_missing])
+
     ratios = rfm_after_detection['monetary_value'] / rfm_before_detection['monetary_value']
     mean_ratio = np.mean(rfm_after_detection['monetary_value'] / rfm_before_detection['monetary_value'])
     std_ratio = np.std(rfm_after_detection['monetary_value'] / rfm_before_detection['monetary_value'])
@@ -94,6 +98,10 @@ def recency_evaluation(customer_id_list, transaction_data, detection_time):
     after_detection_date = datetime.strptime(detection_time, "%Y-%m-%d") + timedelta(days=1)
     after_detection_date = after_detection_date.strftime("%Y-%m-%d")
     rfm_after_detection = transformation.rfm_in_weeks_calculation_evaluation(transaction_data, after_detection_date, '2022-08-31')
+
+    missing_customers = rfm_before_detection.index.difference(rfm_after_detection.index)
+    df_missing = pd.DataFrame(index=missing_customers, columns=rfm_after_detection.columns).fillna(0)
+    rfm_after_detection = pd.concat([rfm_after_detection, df_missing])
 
     ratios = rfm_after_detection['recency'] / rfm_before_detection['recency']
     mean_ratio = np.mean(rfm_after_detection['recency'] / rfm_before_detection['recency'])
