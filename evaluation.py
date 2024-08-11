@@ -24,8 +24,8 @@ def frequency_evaluation(customer_id_list, transaction_data, detection_time):
         The mean ratio of transaction frequency after detection to before detection.
     """
     customer_transactions = transaction_data[transaction_data['Customer ID'].isin(customer_id_list)]
-    rfm_before_detection = transformation.rfm_in_weeks_calculation_evaluation(customer_transactions,
-                                                                      '2022-01-01', detection_time)
+    rfm_before_detection = transformation.rfm_in_weeks_calculation_evaluation(customer_transactions,'2022-01-01', detection_time)
+    rfm_before_detection = rfm_before_detection[rfm_before_detection['frequency'] > 0]
 
     after_detection_date = datetime.strptime(detection_time, "%Y-%m-%d") + timedelta(days=1)
     after_detection_date = after_detection_date.strftime("%Y-%m-%d")
@@ -41,6 +41,7 @@ def frequency_evaluation(customer_id_list, transaction_data, detection_time):
     rfm_before_detection = pd.concat([rfm_before_detection, df_missing_before])
     
     ratios = rfm_after_detection['frequency'] / rfm_before_detection['frequency']
+
     mean_ratio = np.mean(rfm_after_detection['frequency'] / rfm_before_detection['frequency'])
     std =  np.std(rfm_after_detection['frequency']/rfm_before_detection['frequency'])
     
@@ -145,6 +146,8 @@ def perform_t_tests(monthly_data1, monthly_data2, months):
         List of month names corresponding to the data.
     """
     def t_test(data1, data2, month):
+        data1 = pd.to_numeric(data1, errors='coerce')
+        data2 = pd.to_numeric(data2, errors='coerce')
         t_stat, p_value = ttest_ind(data1, data2)
         print(f"{month} - T-statistic: {t_stat}, P-value: {p_value}")
     
