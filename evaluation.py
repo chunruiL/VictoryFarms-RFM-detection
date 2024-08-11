@@ -26,9 +26,11 @@ def frequency_evaluation(customer_id_list, transaction_data, detection_time):
     customer_transactions = transaction_data[transaction_data['Customer ID'].isin(customer_id_list)]
     rfm_before_detection = transformation.rfm_in_weeks_calculation_evaluation(customer_transactions,
                                                                       '2022-01-01', detection_time)
+    rfm_before_detection = rfm_before_detection[rfm_before_detection['frequency'] > 0]
     after_detection_date = datetime.strptime(detection_time, "%Y-%m-%d") + timedelta(days=1)
     after_detection_date = after_detection_date.strftime("%Y-%m-%d")
     rfm_after_detection = transformation.rfm_in_weeks_calculation_evaluation(customer_transactions, after_detection_date, '2022-08-31')
+
 
     missing_customers = rfm_before_detection.index.difference(rfm_after_detection.index)
     df_missing = pd.DataFrame(index=missing_customers, columns=rfm_after_detection.columns).fillna(0)
@@ -60,6 +62,8 @@ def monetary_value_evaluation(customer_id_list, transaction_data, detection_time
     """
     customer_transactions = transaction_data[transaction_data['Customer ID'].isin(customer_id_list)]
     rfm_before_detection = transformation.rfm_in_weeks_calculation_evaluation(customer_transactions, '2022-01-01', detection_time)
+    rfm_before_detection = rfm_before_detection[rfm_before_detection['monetary_value'] > 0]
+
     after_detection_date = datetime.strptime(detection_time, "%Y-%m-%d") + timedelta(days=1)
     after_detection_date = after_detection_date.strftime("%Y-%m-%d")
     rfm_after_detection = transformation.rfm_in_weeks_calculation_evaluation(customer_transactions, after_detection_date, '2022-08-31')
@@ -93,11 +97,14 @@ def recency_evaluation(customer_id_list, transaction_data, detection_time):
     tuple
         A tuple containing the mean and standard deviation of the ratio of recency after detection to before detection.
     """
+    
     customer_transactions = transaction_data[transaction_data['Customer ID'].isin(customer_id_list)]
     rfm_before_detection = transformation.rfm_in_weeks_calculation_evaluation(transaction_data, '2022-01-01', detection_time)
+    rfm_before_detection = rfm_before_detection[rfm_before_detection['recency'] > 0]
+
     after_detection_date = datetime.strptime(detection_time, "%Y-%m-%d") + timedelta(days=1)
     after_detection_date = after_detection_date.strftime("%Y-%m-%d")
-    rfm_after_detection = transformation.rfm_in_weeks_calculation_evaluation(transaction_data, after_detection_date, '2022-08-31')
+    rfm_after_detection = transformation.rfm_in_weeks_calculation_evaluation(customer_transactions, after_detection_date, '2022-08-31')
 
     missing_customers = rfm_before_detection.index.difference(rfm_after_detection.index)
     df_missing = pd.DataFrame(index=missing_customers, columns=rfm_after_detection.columns).fillna(0)
@@ -124,7 +131,7 @@ def perform_t_tests(monthly_data1, monthly_data2, months):
         List of month names corresponding to the data.
     """
     def t_test(data1, data2, month):
-        t_stat, p_value = ttest_ind(data1, data2, equal_var=False)
+        t_stat, p_value = ttest_ind(data1, data2)
         print(f"{month} - T-statistic: {t_stat}, P-value: {p_value}")
     
     for data1, data2, month in zip(monthly_data1, monthly_data2, months):
