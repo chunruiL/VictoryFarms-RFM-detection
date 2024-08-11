@@ -34,7 +34,11 @@ def frequency_evaluation(customer_id_list, transaction_data, detection_time):
     missing_customers_after = rfm_before_detection.index.difference(rfm_after_detection.index)
     df_missing_after = pd.DataFrame(index=missing_customers_after, columns=rfm_after_detection.columns).fillna(0)
     rfm_after_detection = pd.concat([rfm_after_detection, df_missing_after])
-    rfm_before_detection = rfm_before_detection.drop(rfm_after_detection.index.difference(rfm_before_detection.index))
+
+    missing_customers_before =  rfm_after_detection.index.difference(rfm_before_detection.index)
+    df_missing_before = pd.DataFrame(index=missing_customers_before, columns=rfm_after_detection.columns)
+    df_missing_before = df_missing_before.fillna(np.mean(rfm_after_detection['frequency']))
+    rfm_before_detection = pd.concat([rfm_before_detection, df_missing_before])
     
     ratios = rfm_after_detection['frequency'] / rfm_before_detection['frequency']
     mean_ratio = np.mean(rfm_after_detection['frequency'] / rfm_before_detection['frequency'])
@@ -71,8 +75,12 @@ def monetary_value_evaluation(customer_id_list, transaction_data, detection_time
     missing_customers_after = rfm_before_detection.index.difference(rfm_after_detection.index)
     df_missing_after = pd.DataFrame(index=missing_customers_after, columns=rfm_after_detection.columns).fillna(0)
     rfm_after_detection = pd.concat([rfm_after_detection, df_missing_after])
-    rfm_before_detection = rfm_before_detection.drop(rfm_after_detection.index.difference(rfm_before_detection.index))
-    
+
+    missing_customers_before =  rfm_after_detection.index.difference(rfm_before_detection.index)
+    df_missing_before = pd.DataFrame(index=missing_customers_before, columns=rfm_after_detection.columns)
+    df_missing_before = df_missing_before.fillna(np.mean(rfm_after_detection['monetary_value']))
+    rfm_before_detection = pd.concat([rfm_before_detection, df_missing_before])
+
     ratios = rfm_after_detection['monetary_value'] / rfm_before_detection['monetary_value']
     mean_ratio = np.mean(rfm_after_detection['monetary_value'] / rfm_before_detection['monetary_value'])
     std_ratio = np.std(rfm_after_detection['monetary_value'] / rfm_before_detection['monetary_value'])
@@ -110,7 +118,11 @@ def recency_evaluation(customer_id_list, transaction_data, detection_time):
     missing_customers_after = rfm_before_detection.index.difference(rfm_after_detection.index)
     df_missing_after = pd.DataFrame(index=missing_customers_after, columns=rfm_after_detection.columns).fillna(0)
     rfm_after_detection = pd.concat([rfm_after_detection, df_missing_after])
-    rfm_before_detection = rfm_before_detection.drop(rfm_after_detection.index.difference(rfm_before_detection.index))
+
+    missing_customers_before =  rfm_after_detection.index.difference(rfm_before_detection.index)
+    df_missing_before = pd.DataFrame(index=missing_customers_before, columns=rfm_after_detection.columns)
+    df_missing_before = df_missing_before.fillna(np.mean(rfm_after_detection['recency']))
+    rfm_before_detection = pd.concat([rfm_before_detection, df_missing_before])
 
     ratios = rfm_after_detection['recency'] / rfm_before_detection['recency']
     mean_ratio = np.mean(rfm_after_detection['recency'] / rfm_before_detection['recency'])
