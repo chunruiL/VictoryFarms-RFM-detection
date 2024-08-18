@@ -138,7 +138,7 @@ def rfm_in_weeks_calculation(transaction_data, start, end):
     resulting_rfm = pd.merge(resulting_rfm, monetary, on='Customer ID')
     resulting_rfm = resulting_rfm.set_index('Customer ID')
     resulting_rfm.loc[resulting_rfm['frequency'] == 0, 'recency'] = 0
-    resulting_rfm['As of']  = end
+    resulting_rfm['As of']  = end_date
 
          
     return resulting_rfm
@@ -176,7 +176,7 @@ def rfm_in_weeks_calculation_CLV(transaction_data, start, end):
     resulting_rfm = pd.merge(resulting_rfm, monetary, on='Customer ID')
     resulting_rfm = resulting_rfm.set_index('Customer ID')
     resulting_rfm.loc[resulting_rfm['frequency'] == 0, 'recency'] = 0
-    resulting_rfm['As of']  = end
+    resulting_rfm['As of']  = end_date
 
          
     return resulting_rfm
@@ -212,7 +212,7 @@ def rfm_in_weeks_calculation_evaluation(transaction_data, start, end):
     resulting_rfm = pd.merge(resulting_rfm, monetary, on='Customer ID')
     resulting_rfm = resulting_rfm.set_index('Customer ID')
     
-    resulting_rfm['As of']  = end
+    resulting_rfm['As of']  = end_date
 
          
     return resulting_rfm
