@@ -650,6 +650,7 @@ def clv_trajectory_aggregate(clv_list, customer_id):
 
 
 
+
 def cluster_change_summary(classifications, customer_ids):
 
     movement_dict = {}
