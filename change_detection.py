@@ -90,7 +90,8 @@ class CusumMeanDetector:
 
 
 
-def flag_customers_clv(customer_list, CLV_trajectory, p_limit=0.01, indices=[22, 26, 30]):
+
+def flag_customers_clv(customer_list, CLV_trajectory, p_limit=0.01, indices=[25, 29, 34], warmup_length = 24):
     """
     Flag customers based on changes in their CLV values.
 
@@ -112,24 +113,36 @@ def flag_customers_clv(customer_list, CLV_trajectory, p_limit=0.01, indices=[22,
     """
     flagged_customers = {idx: [] for idx in indices}
 
+    warmup_starts = {idx: (idx - warmup_length) for idx in indices}
+   
     for customer_id in customer_list:
-        detector = CusumMeanDetector(t_warmup=18, p_limit=p_limit)
-        clv_values = CLV_trajectory[customer_id]
-        previous = 0
-
-        for idx, clv in enumerate(clv_values):
-            _, is_changepoint = detector.predict_next(clv)
-            if is_changepoint and (clv < previous) and (idx in indices):
-                flagged_customers[idx].append(customer_id)
-            previous = clv
-        
-            all_flagged_customers = set()
+        for idx in indices:
+            warmup_start = warmup_starts[idx]
             
+            detector = CusumMeanDetector(t_warmup=warmup_length, p_limit=p_limit)
+            clv_values = CLV_trajectory[customer_id]
+            
+            previous = 0
+    
+            for j in range(warmup_start, idx+1):
+                clv = clv_values[j]
+                detector.predict_next(clv) 
+                
+            previous = 0
+            for j in range(warmup_start, idx + 1):
+                clv = clv_values[j]
+                _, is_changepoint = detector.predict_next(clv)
+                if is_changepoint and (clv < previous) and (j == idx):
+                    flagged_customers[idx].append(customer_id)
+                previous = clv
+            
+    all_flagged_customers = set()
+    '''     
     for idx in indices:
         current_set = set(flagged_customers[idx])
         unique_set = current_set - all_flagged_customers
         flagged_customers[idx] = list(unique_set)
         all_flagged_customers.update(unique_set)
-
+    '''
 
     return flagged_customers

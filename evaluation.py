@@ -2,6 +2,9 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from scipy.stats import ttest_ind
+from scipy.stats import mannwhitneyu
+import itertools
+
 from . import transformation
 
 def frequency_evaluation(customer_id_list, transaction_data, detection_time):
@@ -153,3 +156,214 @@ def perform_t_tests(monthly_data1, monthly_data2, months):
     
     for data1, data2, month in zip(monthly_data1, monthly_data2, months):
         t_test(data1, data2, month)
+
+
+
+def combine_and_aggregate(evaluation_list, comparison_type = 'previous_year'):
+    # Specifying the comparison type
+    if comparison_type == 'previous_year':
+        frequency_col = 'frequency_ratio_previous_year'
+        monetary_col = 'monetary_value_ratio_previous_year'
+    elif comparison_type == 'same_period_last_year':
+        frequency_col = 'frequency_ratio_same_period_last_year'
+        monetary_col = 'monetary_value_ratio_same_period_last_year'
+   
+    valid_dfs = []
+    for i, eval_result in enumerate(evaluation_list):
+        if isinstance(eval_result, tuple):
+            eval_df = eval_result[0]
+        else:
+            eval_df = eval_result
+        
+        if isinstance(eval_df, pd.DataFrame):
+            valid_dfs.append(
+                eval_df[[frequency_col, monetary_col]]
+                .assign(detection=f"detection_{i+1}")  # Add detection ID if needed
+            )
+        else:
+            print(f"Warning: Skipping invalid result at index {i}: {type(eval_result)}")
+
+    # Combine all valid DataFrames
+    combined = pd.concat(valid_dfs, ignore_index=True)
+
+    # Return the combined ratios only
+    return combined[[frequency_col, monetary_col]]
+
+
+
+
+
+def pairwise_hypothesis_testing_with_means(results_dict, key_list, column='frequency_ratio_previous_year'):
+    test_results = []
+
+    mean_ratios = {key: results_dict[key][column].mean() for key in key_list}
+    for key1, key2 in itertools.combinations(key_list, 2):
+        # Extract frequency ratios
+        group1 = results_dict[key1][column]
+        group2 = results_dict[key2][column]
+
+        stat, p_value = mannwhitneyu(group1, group2, alternative='two-sided')
+        test_results.append({
+            'Group 1': key1,
+            'Group 1 Mean': mean_ratios[key1],
+            'Group 2': key2,
+            'Group 2 Mean': mean_ratios[key2],
+            'Mann-Whitney U Statistic': stat,
+            'P-value': p_value
+        })
+    return pd.DataFrame(test_results)
+
+
+def perform_statistical_test(detected_data, non_detected_data, comparison_type='previous'):
+    """
+    Perform the Mann-Whitney U test on frequency and monetary value ratios between detected and non-detected customers.
+    
+    Parameters:
+    - detected_data (DataFrame): Data of detected customers with RFM ratios.
+    - non_detected_data (DataFrame): Data of non-detected customers with RFM ratios.
+    - comparison_type (str): The type of comparison, either 'previous', 'previous_year', or 'same_period_last_year'.
+    
+    Returns:
+    - tuple: p-values for frequency and monetary value ratios.
+    """
+    
+    # Choose the correct columns based on the comparison type
+    if comparison_type == 'previous':
+        frequency_col = 'frequency_ratio_previous'
+        monetary_col = 'monetary_value_ratio_previous'
+    elif comparison_type == 'previous_year':
+        frequency_col = 'frequency_ratio_previous_year'
+        monetary_col = 'monetary_value_ratio_previous_year'
+    elif comparison_type == 'same_period_last_year':
+        frequency_col = 'frequency_ratio_same_period_last_year'
+        monetary_col = 'monetary_value_ratio_same_period_last_year'
+   
+    frequency_stat, frequency_p_value = mannwhitneyu(detected_data[frequency_col], non_detected_data[frequency_col], alternative='less')
+    
+    monetary_stat, monetary_p_value = mannwhitneyu(detected_data[monetary_col], non_detected_data[monetary_col], alternative='less')
+    
+    return frequency_p_value, monetary_p_value
+
+
+def detection_evaluation_last_year(transaction_data, customer_ids, detection_date, validation_months=1):
+    """
+    Evaluate the ratios of customers' RFM metrics for validation periods of 1 or 3 months after detection, 
+    comparing them to previous periods, previous year, and the same time a year ago. (This is the first detection type)
+
+    Parameters:
+    - transaction_data (DataFrame): Contains 'Customer ID', 'date', and 'Revenue' columns.
+    - customer_ids (list): List of customer IDs to evaluate.
+    - detection_date (str): The date of detection in 'YYYY-MM-DD' format.
+    - validation_months (int): Number of months to evaluate after detection (1 or 3 months).
+
+    Returns:
+    - DataFrame: Contains the RFM ratios (validation / previous, validation / previous year, validation / same period last year) for each customer.
+    """
+    detection_date = pd.to_datetime(detection_date) 
+    start_validation = detection_date
+    end_validation = start_validation + pd.DateOffset(months=validation_months) - pd.Timedelta(days=1)
+
+    start_previous = detection_date - pd.DateOffset(months=validation_months)
+    end_previous = detection_date - pd.Timedelta(days=1)
+
+    start_previous_year = detection_date - pd.DateOffset(years=1)
+    end_previous_year = end_previous - pd.Timedelta(days=1)
+    start_same_period_last_year = start_validation - pd.DateOffset(years=1)
+    end_same_period_last_year = end_validation - pd.DateOffset(years=1)
+
+
+    def calculate_rfm_for_period(start, end):
+        return rfm_calculation(transaction_data, start, end, customer_ids)
+
+    validation_rfm = calculate_rfm_for_period(start_validation, end_validation)
+    previous_year_rfm = calculate_rfm_for_period(start_previous_year, end_previous_year)
+
+    rfm_ratios = pd.DataFrame(index = customer_ids)
+    rfm_ratios = rfm_ratios.join(validation_rfm[['recency', 'frequency', 'monetary_value']], how='left')
+    rfm_ratios = rfm_ratios.join(previous_year_rfm[['recency', 'frequency', 'monetary_value']], how='left', rsuffix='_previous_year')
+
+
+    absent_customers = rfm_ratios[
+        (rfm_ratios['recency_previous_year'].isna() | (rfm_ratios['recency_previous_year'] == 0))  # Absent in previous period
+    ]
+    
+    rfm_ratios = rfm_ratios[
+        (rfm_ratios['recency_previous_year'] != 0) &
+        (rfm_ratios['frequency_previous_year'] != 0) &
+        (rfm_ratios['monetary_value_previous_year'] != 0)
+    ]
+
+
+    rfm_ratios['recency_ratio_previous_year'] = rfm_ratios['recency'] / rfm_ratios['recency_previous_year']
+    rfm_ratios['frequency_ratio_previous_year'] = rfm_ratios['frequency'] / rfm_ratios['frequency_previous_year']
+    rfm_ratios['monetary_value_ratio_previous_year'] = rfm_ratios['monetary_value'] / rfm_ratios['monetary_value_previous_year']
+    
+
+    return  rfm_ratios[['recency_ratio_previous_year', 'frequency_ratio_previous_year', 'monetary_value_ratio_previous_year']], absent_customers
+
+
+
+def detection_evaluation_same_period_last_year(transaction_data, customer_ids, detection_date, validation_months=1):
+    """
+    Evaluate the ratios of customers' RFM metrics for validation periods of 1 or 3 months after detection, 
+    comparing them to previous periods, previous year, and the same time a year ago. This is the second detection type.
+
+    Parameters:
+    - transaction_data (DataFrame): Contains 'Customer ID', 'date', and 'Revenue' columns.
+    - customer_ids (list): List of customer IDs to evaluate.
+    - detection_date (str): The date of detection in 'YYYY-MM-DD' format.
+    - validation_months (int): Number of months to evaluate after detection (1 or 3 months).
+
+    Returns:
+    - DataFrame: Contains the RFM ratios (validation / previous, validation / previous year, validation / same period last year) for each customer.
+    """
+    detection_date = pd.to_datetime(detection_date) 
+    start_validation = detection_date
+    end_validation = start_validation + pd.DateOffset(months=validation_months) - pd.Timedelta(days=1)
+
+    # Previous months immediately before detection
+    start_previous = detection_date - pd.DateOffset(months=validation_months)
+    end_previous = detection_date - pd.Timedelta(days=1)
+
+    # Previous year
+    start_previous_year = detection_date - pd.DateOffset(years=1)
+    end_previous_year = end_previous - pd.Timedelta(days=1)
+
+
+    # Same period last year
+    start_same_period_last_year = start_validation - pd.DateOffset(years=1)
+    #print(start_same_period_last_year)
+    end_same_period_last_year = end_validation - pd.DateOffset(years=1)
+    #print(end_same_period_last_year)
+    
+    # Helper function to calculate RFM metrics
+    def calculate_rfm_for_period(start, end):
+        return rfm_calculation(transaction_data, start, end, customer_ids)
+
+    validation_rfm = calculate_rfm_for_period(start_validation, end_validation)
+    same_period_last_year_rfm = calculate_rfm_for_period(start_same_period_last_year, end_same_period_last_year)
+
+    rfm_ratios = pd.DataFrame(index = customer_ids)
+    rfm_ratios = rfm_ratios.join(validation_rfm[['recency', 'frequency', 'monetary_value']], how='left')
+    rfm_ratios = rfm_ratios.join(same_period_last_year_rfm[['recency', 'frequency', 'monetary_value']], how='left', rsuffix='_same_period_last_year')
+    
+    absent_customers = rfm_ratios[
+        (rfm_ratios['recency_same_period_last_year'].isna() | (rfm_ratios['recency_same_period_last_year'] == 0))  # Absent in previous period
+    ]
+    
+    rfm_ratios = rfm_ratios[
+        (rfm_ratios['recency_same_period_last_year'] != 0) &
+        (rfm_ratios['frequency_same_period_last_year'] != 0) &
+        (rfm_ratios['monetary_value_same_period_last_year'] != 0)
+    ]
+
+
+    rfm_ratios['recency_ratio_same_period_last_year'] = rfm_ratios['recency'] / rfm_ratios['recency_same_period_last_year']
+    rfm_ratios['frequency_ratio_same_period_last_year'] = rfm_ratios['frequency'] / rfm_ratios['frequency_same_period_last_year']
+    rfm_ratios['monetary_value_ratio_same_period_last_year'] = rfm_ratios['monetary_value'] / rfm_ratios['monetary_value_same_period_last_year']
+    
+
+    return  rfm_ratios[['recency_ratio_same_period_last_year', 'frequency_ratio_same_period_last_year', 'monetary_value_ratio_same_period_last_year']], absent_customers
+
+
+

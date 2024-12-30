@@ -54,7 +54,7 @@ class ParetoNBDFitter(BaseFitter):
             return (f"<ParetoNBDFitter: r={self.params_['r']:.4f}, alpha={self.params_['alpha']:.4f}, "
                     f"s={self.params_['s']:.4f}, beta={self.params_['beta']:.4f}>")
 
-    def fit(self, frequency, recency, T, weights=None, iterative_fitting=1, initial_params=None, verbose=False, tol=1e-4, index=None, fit_method="Nelder-Mead", maxiter=2000, **kwargs):
+    def fit(self, frequency, recency, T, weights=None, iterative_fitting=1, initial_params=None, verbose=False, tol=1e-4, index=None, fit_method="Nelder-Mead", maxiter=2000, random_state=None, **kwargs):
         """
         Fit the Pareto/NBD model.
         """
@@ -80,6 +80,7 @@ class ParetoNBDFitter(BaseFitter):
             tol,
             fit_method,
             maxiter,
+            random_state=random_state,
             **kwargs
         )
         self._hessian_ = None
@@ -422,6 +423,7 @@ class ParetoNBDFitter(BaseFitter):
         tol=1e-6,
         fit_method="Nelder-Mead",
         maxiter=2000,
+        random_state = None,
         **kwargs
     ):
         """

@@ -56,14 +56,17 @@ def get_first_and_last_day(year, month):
 
 
 '''
-
-The following function is used to 
+The following function is used to get the Monday (specific date) of the week where the given date is in
 '''
 def get_monday(date):
     return date - timedelta(days=date.weekday())
 
+'''
+The following function is used to get the Suanday (specific date) of the week where the given date is in
+'''
 def get_sunday(date):
     return date + timedelta(days=(6 - date.weekday()))
+
 
 def calculate_monthly_rfm(transaction_data, customer_list, start_date, end_date):
     """
@@ -105,80 +108,142 @@ def calculate_monthly_rfm(transaction_data, customer_list, start_date, end_date)
     return rfm_data
 
 
-
-def rfm_in_weeks_calculation(transaction_data, start, end):
-    '''
-    the start as the start date for the rfm calculation
-    return a dataframe contains frequency, recency, and T(age from the end date), and the average monetary value
-    this function uses week as the unit of time
-    
-    '''
-    start_date = pd.to_datetime(start)
-    end_date = pd.to_datetime(end)
-    
-    filtered_transactions = transaction_data[(transaction_data['date'] >= start_date) & (transaction_data['date'] <= end_date)]
-    
-    filtered_transactions['week'] = ((filtered_transactions['date'] - start_date) / np.timedelta64(1, 'W')).astype(int)
-    
-    resulting_rfm = pd.DataFrame()
-
-    
-        
-    recency_and_T = filtered_transactions.groupby(['Customer ID']).agg(
-        recency=('date', lambda x: ((x.max() - x.min()).days)/7),
-        T=('date', lambda x: ((end_date - x.min()).days)/7)
-    ).reset_index()
-
-    frequency_and_revenue_by_weeks = filtered_transactions.groupby(['Customer ID', 'week'])['Revenue'].sum()
-    frequency = (frequency_and_revenue_by_weeks.groupby('Customer ID').size() -1).reset_index(name='frequency')
-    monetary = frequency_and_revenue_by_weeks.groupby('Customer ID').sum().reset_index(name='monetary_value')
-
-        
-    resulting_rfm = pd.merge(recency_and_T, frequency, on='Customer ID')
-    resulting_rfm = pd.merge(resulting_rfm, monetary, on='Customer ID')
-    resulting_rfm = resulting_rfm.set_index('Customer ID')
-    resulting_rfm.loc[resulting_rfm['frequency'] == 0, 'recency'] = 0
-    resulting_rfm['As of']  = end_date
-
          
+def rfm_calculation(transaction_data, start_date, end_date, customer_list):
+    """
+    Calculate Recency, Frequency, and Monetary (RFM) metrics for a list of customers 
+    within a specified date range. For detailed definition, please see the paper.
+
+    Parameters
+    ----------
+    transaction_data : DataFrame
+        A DataFrame containing at least the following columns:
+        - 'Customer ID'
+        - 'date' (datetime or convertible to datetime)
+        - 'Revenue' (numeric)
+    start_date : str or datetime
+        The start date of the analysis period (inclusive).
+    end_date : str or datetime
+        The end date of the analysis period (inclusive).
+    customer_list : list
+        A list of all sampled customer IDs.
+
+    Returns
+    -------
+    DataFrame
+        An RFM DataFrame indexed by 'Customer ID', containing columns (For detailed definition, please see the paper):
+        - 'recency'
+        - 'frequency'
+        - 'monetary_value'
+        - 'As of': The end date of the analysis period.
+        Any customers in `customer_list` without transactions in the period 
+        are assigned zeros for R, F, M.
+    """
+
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+    
+    filtered_transactions = transaction_data[(transaction_data['date'] >= start_date) & (transaction_data['date'] <= end_date)].copy()
+    
+    recency = filtered_transactions.groupby('Customer ID').agg(
+        t_n=('date', 'max')
+    ).reset_index()
+    recency['recency'] = (recency['t_n'] - start_date) / (end_date - start_date)
+    
+    purchase_days = filtered_transactions.groupby(['Customer ID', 'date']).size().reset_index(name='purchase_count')
+    frequency = purchase_days.groupby('Customer ID').size().reset_index(name='purchase_days')
+    
+    frequency['frequency'] = frequency['purchase_days'] / (end_date - start_date).days
+    
+    monetary = filtered_transactions.groupby('Customer ID')['Revenue'].sum().reset_index(name='total_revenue')
+    monetary['monetary_value'] = monetary['total_revenue'] / (end_date - start_date).days
+
+    resulting_rfm = pd.merge(recency[['Customer ID', 'recency']], frequency[['Customer ID', 'frequency']], on='Customer ID')
+    resulting_rfm = pd.merge(resulting_rfm, monetary[['Customer ID', 'monetary_value']], on='Customer ID')
+    customer_df = pd.DataFrame(customer_list, columns=['Customer ID'])
+    resulting_rfm = pd.merge(customer_df, resulting_rfm, on='Customer ID', how='left')
+
+    # Fill missing values for customers with no purchases during the period
+    resulting_rfm['recency'].fillna(0, inplace=True)
+    resulting_rfm['frequency'].fillna(0, inplace=True)
+    resulting_rfm['monetary_value'].fillna(0, inplace=True)  
+    resulting_rfm['As of'] = end_date
+
+    resulting_rfm.set_index('Customer ID', inplace=True)
+    
     return resulting_rfm
 
 
-def rfm_in_weeks_calculation_CLV(transaction_data, start, end):
-    '''
-    the start as the start date for the rfm calculation
-    return a dataframe contains frequency, recency, and T(age from the end date), and the average monetary value
-    this function uses week as the unit of time
+def rfm_calculation_CLV(transaction_data, start_date, end_date, customer_list):
     
-    '''
-    start_date = pd.to_datetime(start)
-    end_date = pd.to_datetime(end)
-    
-    filtered_transactions = transaction_data[(transaction_data['date'] >= start_date) & (transaction_data['date'] <= end_date)]
-    
-    filtered_transactions['week'] = ((filtered_transactions['date'] - start_date) / np.timedelta64(1, 'W')).astype(int)
-    
-    resulting_rfm = pd.DataFrame()
+    """
+    Calculate RFM metrics for the Customer Lifetime Value (CLV) modeling. This function is for calculating 
+    transformed RFM metrics from the RFM definitions. 
 
+    This function computes extended RFM metrics commonly used for CLV analysis:
+      - recency: The number of days between the first and the last purchase.
+      - frequency: The number of distinct purchase days in the analysis period.
+      - monetary_value: The average revenue per purchase (total revenue / frequency).
+      - T: The number of days from the first purchase to the end of the analysis period.
+      - As of: The end date of the analysis period (timestamp).
+
+    Parameters
+    ----------
+    transaction_data : DataFrame
+        A DataFrame of transactions, which must include:
+        - 'Customer ID' (identifier for each customer)
+        - 'date' (datetime or convertible to datetime)
+        - 'Revenue' (numeric, indicating revenue from each transaction)
+    start_date : str or datetime
+        Start date of the analysis period (inclusive).
+    end_date : str or datetime
+        End date of the analysis period (inclusive).
+    customer_list : list
+        A list of all sampled customer IDs.
+
+    Returns
+    -------
+    DataFrame
+        A DataFrame indexed by 'Customer ID' with columns (For detailed definition, please see the CLV section of the paper):
+        - 'recency'
+        - 'frequency'
+        - 'monetary_value'
+        - 'T'
+    """
+     
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+    filtered_transactions = transaction_data[(transaction_data['date'] >= start_date) & (transaction_data['date'] <= end_date)].copy()
     
-        
-    recency_and_T = filtered_transactions.groupby(['Customer ID']).agg(
-        recency=('date', lambda x: ((x.max() - x.min()).days)/7),
-        T=('date', lambda x: ((end_date - x.min()).days)/7)
+    recency = filtered_transactions.groupby('Customer ID').agg(
+        t_n=('date', 'max'),
+        t_min = ('date', 'min')
     ).reset_index()
+    
+    recency['recency'] = (recency['t_n'] - recency['t_min']).dt.days
+    recency['T'] = (end_date - recency['t_min']).dt.days
+    
+    purchase_days = filtered_transactions.groupby(['Customer ID', 'date']).size().reset_index(name='purchase_count')
+    frequency = purchase_days.groupby('Customer ID').size().reset_index(name='purchase_days')
+    frequency['frequency'] = frequency['purchase_days']
+    
+    monetary = filtered_transactions.groupby('Customer ID')['Revenue'].sum().reset_index(name='total_revenue')
+    monetary = pd.merge(frequency, monetary, on='Customer ID', how='left')  
+    monetary['monetary_value'] = monetary['total_revenue'] / frequency['frequency']
 
-    frequency_and_revenue_by_weeks = filtered_transactions.groupby(['Customer ID', 'week'])['Revenue'].sum()
-    frequency = (frequency_and_revenue_by_weeks.groupby('Customer ID').size() -1).reset_index(name='frequency')
-    monetary = frequency_and_revenue_by_weeks.groupby('Customer ID').mean().reset_index(name='monetary_value')
+    resulting_rfm = pd.merge(recency[['Customer ID', 'recency', 'T']], frequency[['Customer ID', 'frequency']], on='Customer ID')
+    resulting_rfm = pd.merge(resulting_rfm, monetary[['Customer ID', 'monetary_value']], on='Customer ID')
+    customer_df = pd.DataFrame(customer_list, columns=['Customer ID'])
+    resulting_rfm = pd.merge(customer_df, resulting_rfm, on='Customer ID', how='left')
 
-        
-    resulting_rfm = pd.merge(recency_and_T, frequency, on='Customer ID')
-    resulting_rfm = pd.merge(resulting_rfm, monetary, on='Customer ID')
-    resulting_rfm = resulting_rfm.set_index('Customer ID')
-    resulting_rfm.loc[resulting_rfm['frequency'] == 0, 'recency'] = 0
-    resulting_rfm['As of']  = end_date
+    resulting_rfm['recency'].fillna(0, inplace=True)
+    resulting_rfm['frequency'].fillna(0, inplace=True)
+    resulting_rfm['monetary_value'].fillna(0, inplace=True)
+    resulting_rfm['T'].fillna(0, inplace=True)
+    resulting_rfm['As of'] = end_date
 
-         
+    resulting_rfm.set_index('Customer ID', inplace=True)
+    
     return resulting_rfm
 
 
@@ -219,40 +284,6 @@ def rfm_in_weeks_calculation_evaluation(transaction_data, start, end):
 
 
 
-def rfm_calculation(purchases_sorted):
-    # the array below will contain the RFM calculations for each month
-    purchases_sorted_rfm = []
-
-    # iterating month-by-month...
-    for month in purchases_sorted:
-
-        # sum every customer's revenue
-        monthly_revenue = month.groupby(['Customer ID'])['Revenue'].sum()
-
-        # add a new column, where the value is derived from subtracting the last day in the month by the index value
-        # e.g. if a purchase was made on October 21, this new column would be 31 - 21 = 10
-        month["Recency"] = (month.index[-1] - month.index).days
-        # sorting by customer ID, find the last recency value for a customer
-        monthly_recency = month.groupby(['Customer ID'])['Recency'].last()
-
-        # count the number of purchases a customer made in a month
-        monthly_frequency = month.groupby(['Customer ID'])['Revenue'].count()
-
-        # By taking the three series we extracted above, we can convert these into a Pandas dataframe
-        # Important note: while the RFM framework has recency at the beginning, in our dataframe revenue (or monetary
-        # value) is at the beginning. The order here is important.
-        monthly_df = pd.DataFrame([monthly_revenue, monthly_recency, monthly_frequency])
-        # We need to transpose this dataframe since each customer is a column. This will make every customer is a row.
-        monthly_df = monthly_df.transpose()
-        monthly_df = monthly_df.set_axis(['Revenue', 'Recency', 'Frequency'], axis=1)
-        # As of date is for our ARIMA work
-        monthly_df['As of'] = month.index[-1]
-        # Last, we append the months RFM values to the associated array
-        purchases_sorted_rfm.append(monthly_df)
-
-    return purchases_sorted_rfm
-
-
 
 def scaling(purchases_sorted_rfm):
     """
@@ -279,6 +310,24 @@ def scaling(purchases_sorted_rfm):
     return purchases_rfm_stand
 
 
+
+def scaling_revenue(purchases_sorted_rfm_list):
+    """
+    Scale the revenue column of the calculated RFM dataframe.
+    """
+
+    scaler = MinMaxScaler()
+
+    for purchases_sorted_rfm in purchases_sorted_rfm_list:
+        purchases_sorted_rfm[['revenue']] = scaler.fit_transform(purchases_sorted_rfm[['monetary_value']])
+
+    purchases_rfm_stand = purchases_sorted_rfm_list.copy()
+
+    return purchases_rfm_stand
+
+
+
+
 def box_cox_transformation(Lambda, RFM, Dimension):
     '''
     This function takes the lambda value for the Box-Cox transformation
@@ -301,98 +350,6 @@ def box_cox_transformation(Lambda, RFM, Dimension):
     return transformed
 
 
-
-def absence_handler_unstand(purchases_rfm, customer_list):
-
-    '''
-    Handling the customers in the sample customers set who had made purhcase before but
-    had not make any purchase in the current period
-    '''
-    running_list = set()
-    absence_list = []
-    rfm_stand_complete = []
-
-    customer_set = set(customer_list)
-
-    # Iterating month-by-month...
-    for month in purchases_rfm:
-        # Get the list of customers in a given month and convert them into a set.
-        monthly_set = set(month.index.unique())
-
-        # Update the running_list set with these IDs.
-        running_list.update(month.index.unique())
-        
-
-        
-        
-        customer_set_all = customer_set.union((running_list))
-        # Compute the set difference, considering only customers in customer_list
-        absent_customers = customer_set_all - monthly_set
-        
-        absence_list.append(absent_customers)
-
-    # Fill in the values for absent customers.
-    for x, month in enumerate(purchases_rfm):
-        rows_to_add = []
-        # For every absence cusomers:
-        for absence in absence_list[x]:
-            # Calculate recency in weeks (assuming 'As of' column is datetime)
-            last_day_of_month = month['As of'].iloc[-1]
-            first_day_of_month = month['As of'].iloc[0].replace(day=1)
-            
-            recency_weeks = (last_day_of_month - first_day_of_month).days / 7
-            T = recency_weeks
-            assignment_list = [0, T, 0, 0, last_day_of_month]
-            row_to_add = pd.Series(assignment_list, index=month.columns, name=absence)
-            rows_to_add.append(row_to_add)
-
-        if rows_to_add:
-            rows_to_add_df = pd.DataFrame(rows_to_add, columns= month.columns)
-            month = pd.concat([month, rows_to_add_df.astype(month.dtypes)], axis = 0) 
-            
-        rfm_stand_complete.append(month.sort_index())
-
-    return rfm_stand_complete
-
-
-def absence_handler(purchases_rfm_stand):
-    # One of the last steps of our preprocessing is filling in absent customers. By tracking when customers start making
-    # purchases, we can determine if a customer is absent or not.
-    # The running list below will contain a set of all customer IDs who have made a purchase to date. By comparing the
-    # customers in a month to the running list, we can find the customers who are absent.
-    running_list = set()
-    # The absence list will contain an array of arrays, which will track the absent customers for each month of the
-    # data set.
-    absence_list = []
-    # The array below will contain the RFM values for each data set, with the absent customers 'filled in' with a
-    # revenue of 0, recency of 1, and frequency of 0.
-    rfm_stand_complete = []
-
-    # iterating month-by-month...
-    for month in purchases_rfm_stand:
-        # we get the list of customers in a given month and convert them into a set.
-        monthly_set = set(month.index.unique())
-
-        # we then update the running_list set with these IDs.
-        running_list.update(month.index.unique())
-
-        # we then compute the set difference, appending it to the absence list for that month.
-        absence_list.append(running_list - monthly_set)
-
-    # here we fill in the values for absent customers.
-    for x in range(len(purchases_rfm_stand)):
-        # we first fetch the RFM values of the associated month
-        month = purchases_rfm_stand[x]
-
-        # for every absence...
-        for absence in absence_list[x]:
-            # fill in a row with these values
-            month.loc[absence] = [0, 1, 0, month['As of'].values[-1]]
-
-        # we then append the completed RFM values to the associated array
-        rfm_stand_complete.append(month)
-
-    return rfm_stand_complete, absence_list
 
 
 
