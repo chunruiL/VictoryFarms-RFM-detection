@@ -92,7 +92,7 @@ def inner_scope_handler(inner_scope_unclassified, inner_anchors):
 
 
 
-def run_clustering_pipeline(training_data, testing_data, clustering, num_detections=3, outer_clusters=4, inner_clusters=3, threshold = -3):
+def run_clustering_pipeline(training_data, testing_data, num_detections=3, outer_clusters=4, inner_clusters=3, threshold = -3):
     """
     Run a multi-step clustering pipeline on training and test data for a specified number of detections.
 
