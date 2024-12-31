@@ -12,8 +12,11 @@ def k(df, clusters=2, random_state=None):
 
 
 def distance(df, centroids):
-    # this function computes the distances for each customer to each centroid. The shortest distance is then deemed to
-    # be the customer's respective cluster. The  calculation used is the Euclidian distance.
+    '''
+    this function computes the distances for each customer to each centroid. The shortest distance is then deemed to
+    be the customer's respective cluster. The  calculation used is the Euclidian distance.
+    '''
+    
     distances_list = []
     for centroid in centroids:
         distances = ((df['revenue'] - centroid[0])**2 + (df['recency'] - centroid[1])**2 + (df['frequency'] -
@@ -27,11 +30,8 @@ def distance(df, centroids):
     return distance_df
 
 
-def outer_scope_centroids(outer_scope_unclassified, month_idx, num_of_clusters):
-    # the outer anchors are computed by taking the outer scope RFM values for the anchor month and running the KMeans
-    # clustering algorithm on them. The values returned are the coordinates of the respective centroids.
-    # 3 clusters was determined by examining the elbow plot computed from the unclassified RFM outer scope values
-    outer_anchors = k(outer_scope_unclassified[month_idx], clusters=num_of_clusters)
+def outer_scope_centroids(outer_scope_unclassified, detection_idx, num_of_clusters):
+    outer_anchors = k(outer_scope_unclassified[detection_idx], clusters=num_of_clusters)
     # these centroids are then sorted based on recency.
     outer_anchors = outer_anchors[outer_anchors[:, 0].argsort()]
 
@@ -59,7 +59,6 @@ def elimination(outer_scope_classified):
     return inner_scope_unclassified1, outer_scope_dropped
 '''
 
-# --- we actually can modify this to make the number of clustering to be a parameter we can initialize
 def elimination(outer_scope_classified):
     # we eliminate the outer scope clusters 1 and 2 in this step
     inner_scope_unclassified1 = outer_scope_classified[~outer_scope_classified['outer_scope_group'].isin([0, 1])].copy()

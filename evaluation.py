@@ -273,7 +273,7 @@ def detection_evaluation_last_year(transaction_data, customer_ids, detection_dat
 
 
     def calculate_rfm_for_period(start, end):
-        return rfm_calculation(transaction_data, start, end, customer_ids)
+        return transformation.rfm_calculation(transaction_data, start, end, customer_ids)
 
     validation_rfm = calculate_rfm_for_period(start_validation, end_validation)
     previous_year_rfm = calculate_rfm_for_period(start_previous_year, end_previous_year)
@@ -338,7 +338,7 @@ def detection_evaluation_same_period_last_year(transaction_data, customer_ids, d
     
     # Helper function to calculate RFM metrics
     def calculate_rfm_for_period(start, end):
-        return rfm_calculation(transaction_data, start, end, customer_ids)
+        return transformation.rfm_calculation(transaction_data, start, end, customer_ids)
 
     validation_rfm = calculate_rfm_for_period(start_validation, end_validation)
     same_period_last_year_rfm = calculate_rfm_for_period(start_same_period_last_year, end_same_period_last_year)
