@@ -174,7 +174,7 @@ def run_clustering_pipeline(training_data, testing_data, num_detections=3, outer
         cluster_movements.append(detection_list)
 
         # Printing the results
-        print(f"Detection {detection} cluster movement distribution:\n{movement_info.value_counts()}\n")
+        print(f"Detection {detection+1} cluster movement distribution:\n{movement_info.value_counts()}\n")
 
     return classified_training, classified_test, cluster_movements
 

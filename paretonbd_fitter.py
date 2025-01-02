@@ -442,6 +442,7 @@ class ParetoNBDFitter(BaseFitter):
             raise ValueError(
                 "iterative_fitting and initial_params should not be both set, as no improvement could be made."
             )
+        rng = np.random.default_rng(random_state)
 
         # set options for minimize, if specified in kwargs will be overwritten
         minimize_options = {}
@@ -452,7 +453,7 @@ class ParetoNBDFitter(BaseFitter):
         total_count = 0
         while total_count < iterative_fitting:
             current_init_params = (
-                np.random.normal(1.0, scale=0.05, size=params_size) if initial_params is None else initial_params
+                rng.normal(1.0, scale=0.05, size=params_size) if initial_params is None else initial_params
             )
             if minimize_options["disp"]:
                 print("Optimize function with {}".format(fit_method))

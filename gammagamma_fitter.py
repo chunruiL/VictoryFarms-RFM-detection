@@ -163,6 +163,7 @@ class GammaGammaFitter(BaseFitter):
         monetary_value,
         weights=None,
         initial_params=None,
+        random_state = None,
         verbose=False,
         tol=1e-7,
         index=None,
@@ -220,6 +221,11 @@ class GammaGammaFitter(BaseFitter):
         else:
             weights = np.asarray(weights)
 
+        if initial_params is None:
+        # Use random_state for reproducibility in parameter initialization
+            rng = np.random.default_rng(random_state)
+            initial_params = rng.normal(loc=1.0, scale=0.1, size=3)
+            
         log_params, self._negative_log_likelihood_, self._hessian_ = self._fit(
             (frequency, monetary_value, weights, self.penalizer_coef),
             initial_params,
