@@ -192,17 +192,44 @@ def combine_and_aggregate(evaluation_list, comparison_type = 'previous_year'):
 
 
 
-
 def pairwise_hypothesis_testing_with_means(results_dict, key_list, column='frequency_ratio_previous_year'):
+    """
+    Perform pairwise Mann-Whitney U tests between groups specified in key_list.
+    
+    Parameters
+    ----------
+    results_dict : dict
+        A dictionary of DataFrames. Each key in `results_dict` corresponds to a group,
+        and the value is a DataFrame that contains the data for that group.
+    key_list : list
+        A list of keys (group names) to include in the pairwise tests.
+    column : str, optional
+        The name of the column in each group's DataFrame which contains the numeric 
+        values to be tested (default is 'frequency_ratio_previous_year').
+    
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame containing the pairwise test results, including group names,
+        group means, Mann-Whitney U statistics, and associated p-values.
+    """
+
+    # Initialize an empty list to store the results of each pairwise test
     test_results = []
 
+    # Compute mean of the chosen column for each group in advance to avoid repeated calculations
     mean_ratios = {key: results_dict[key][column].mean() for key in key_list}
+
+    # Generate all unique pairs of groups from key_list using combinations
     for key1, key2 in itertools.combinations(key_list, 2):
-        # Extract frequency ratios
+        # Extract the data series for the two groups
         group1 = results_dict[key1][column]
         group2 = results_dict[key2][column]
 
+        # Perform the two-sided Mann-Whitney U test on the two groups
         stat, p_value = mannwhitneyu(group1, group2, alternative='two-sided')
+
+        # Append a dictionary of results for the current pair to our list
         test_results.append({
             'Group 1': key1,
             'Group 1 Mean': mean_ratios[key1],
@@ -211,6 +238,8 @@ def pairwise_hypothesis_testing_with_means(results_dict, key_list, column='frequ
             'Mann-Whitney U Statistic': stat,
             'P-value': p_value
         })
+
+    # Convert the list of test results into a DataFrame and return it
     return pd.DataFrame(test_results)
 
 
