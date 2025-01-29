@@ -65,7 +65,7 @@ def create_color_map(df, group_column):
 color_map_inner = None
 color_map_outer = None
 
-def plot3d_clusters_inner(df, centroids=None, month_number=0):
+def plot3d_clusters_inner(df, centroids=None, month_number=0, elev=10, azim=-40):
     """
     Plots inner scope clusters in a 3D scatter plot with consistent color mapping.
     """
@@ -86,13 +86,13 @@ def plot3d_clusters_inner(df, centroids=None, month_number=0):
     ax.set_ylim3d(0, 1)
     ax.set_zlim3d(0, 1)
 
-    ax.view_init(elev=10, azim=-40) 
+    ax.view_init(elev=elev, azim=azim)  
     handles = [mpatches.Patch(color=color_map_inner[label], label=label) for label in sorted(color_map_inner.keys())]
     ax.legend(handles=handles, title="Clusters & Sub-Clusters", fontsize=12, title_fontsize=13)
     plt.show()
 
 
-def plot3d_clusters_outer(df, centroids=None, month_number=0):
+def plot3d_clusters_outer(df, centroids=None, month_number=0, elev=10, azim=-40):
     """
     Plots outer scope clusters in a 3D scatter plot with consistent color mapping.
     """
@@ -113,7 +113,7 @@ def plot3d_clusters_outer(df, centroids=None, month_number=0):
     ax.set_ylim3d(0, 1)
     ax.set_zlim3d(0, 1)
 
-    ax.view_init(elev=10, azim=-40) 
+    ax.view_init(elev=elev, azim=azim) 
     handles = [mpatches.Patch(color=color_map_outer[label], label=label) for label in sorted(color_map_outer.keys())]
     ax.legend(handles=handles, title="Clusters", fontsize=12, title_fontsize=13)
     plt.show()
