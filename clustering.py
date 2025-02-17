@@ -3,7 +3,7 @@ import csv
 from sklearn.cluster import KMeans
 
 
-def k(df, clusters=2, random_state=42):
+def k(df, clusters=2, random_state=24):
     # Here we set up a generic KMeans function
     kmeans = KMeans(n_clusters=clusters, random_state=random_state)
     clustering = kmeans.fit(df[['revenue', 'recency', 'frequency']])
