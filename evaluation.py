@@ -277,7 +277,6 @@ def perform_statistical_test(detected_data, non_detected_data, comparison_type='
 def detection_evaluation_last_year(transaction_data, customer_ids, detection_date, validation_months=1):
     """
     Evaluate the ratios of customers' RFM metrics for validation periods of 1 or 3 months after detection, 
-    comparing them to previous periods, previous year, and the same time a year ago. (This is the first detection type)
 
     Parameters:
     - transaction_data (DataFrame): Contains 'Customer ID', 'date', and 'Revenue' columns.
@@ -349,15 +348,6 @@ def detection_evaluation_same_period_last_year(transaction_data, customer_ids, d
     detection_date = pd.to_datetime(detection_date) 
     start_validation = detection_date
     end_validation = start_validation + pd.DateOffset(months=validation_months) - pd.Timedelta(days=1)
-
-    # Previous months immediately before detection
-    start_previous = detection_date - pd.DateOffset(months=validation_months)
-    end_previous = detection_date - pd.Timedelta(days=1)
-
-    # Previous year
-    start_previous_year = detection_date - pd.DateOffset(years=1)
-    end_previous_year = end_previous - pd.Timedelta(days=1)
-
 
     # Same period last year
     start_same_period_last_year = start_validation - pd.DateOffset(years=1)
